@@ -1,0 +1,28 @@
+[package]
+name = "threat-guard"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "threat_guard_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+monitor-core = { path = "../../../crates/monitor-core" }
+ai-explainer = { path = "../../../crates/ai-explainer" }
+shared-types = { path = "../../../crates/shared-types" }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-shell = "2"
+tauri-plugin-notification = "2"
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+dirs = "5"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

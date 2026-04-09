@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+target/
+build/
+
+# Tauri
+apps/tauri-shell/src-tauri/target/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Claude Code local config
+.claude/
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
