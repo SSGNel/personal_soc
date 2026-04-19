@@ -72,7 +72,19 @@ pnpm install
 
 ```bash
 # From the repo root
-cargo tauri dev
+pnpm dev:all
+```
+
+This starts the Vite dev server and a local browser-accessible backend together. If you want only the backend, use:
+
+```bash
+pnpm dev:backend
+```
+
+To run the full Tauri desktop app instead, use:
+
+```bash
+pnpm tauri
 ```
 
 This starts the Vite dev server and the Tauri desktop window together. The app will hot-reload on frontend changes. Rust changes require a restart.
@@ -140,6 +152,7 @@ Risk score ≥ 40 → flagged as "At Risk". Risk score ≥ 70 → high severity 
 ## Architecture Notes
 
 - **No server required** — everything runs locally. The database is a SQLite file stored in the Tauri app data directory.
+- **HTTP backend fallback** — the desktop app also exposes a local HTTP API on `http://127.0.0.1:3420/api` so the frontend can fall back from Tauri invoke to standard HTTP requests.
 - **AI key baked in at build time** — `build.rs` reads `GROQ_API_KEY` from `.env` and compiles it into the binary via `option_env!`. Users of the built installer never need to configure anything. The key can also be overridden at runtime in the Settings page.
 - **Polling intervals** — overview/alerts/startup refresh every 15 s; process list refreshes every 30 s. The Events page also refreshes every 30 s.
 - **Tauri v2 param convention** — invoke parameters are written in camelCase in TypeScript and automatically converted to snake_case by Tauri before reaching Rust handlers.

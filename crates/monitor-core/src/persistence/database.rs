@@ -749,17 +749,61 @@ impl Database {
         Ok((rows.filter_map(|r| r.ok()).collect(), total))
     }
 
-    // ---- AI Conversations ----
+    // ---- Password Manager Credentials ----
 
-    pub fn insert_ai_conversation(&self, conv: &AiConversation) -> Result<()> {
+    pub fn save_credential(&self, site: &str, username: &str, password_encrypted: &str) -> Result<String> {
+        let conn = self.conn.lock().unwrap();
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO credentials (id, site, username, password_encrypted, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(site, username) DO UPDATE SET
+               password_encrypted = excluded.password_encrypted,
+               updated_at = excluded.updated_at",
+            params![id, site, username, password_encrypted, now, now],
+        )?;
+        Ok(id)
+    }
+
+    pub fn get_credentials_for_domain(&self, site: &str) -> Result<Vec<(String, String, String)>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, username, password_encrypted FROM credentials WHERE site = ?1 ORDER BY updated_at DESC",
+        )?;
+        let rows = stmt.query_map([site], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?))
+        })?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    pub fn list_credentials(&self) -> Result<Vec<(String, String, String, String)>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, site, username, password_encrypted FROM credentials ORDER BY updated_at DESC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    pub fn delete_credential(&self, id: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM credentials WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn update_autofill_timestamp(&self, id: &str) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO ai_conversations (id, process_id, created_at, prompt, response, context_json)
-             VALUES (?1,?2,?3,?4,?5,?6)",
-            params![
-                conv.id, conv.process_id, conv.created_at.to_rfc3339(),
-                conv.prompt, conv.response, conv.context_json.to_string(),
-            ],
+            "UPDATE credentials SET last_autofilled_at = ?1 WHERE id = ?2",
+            params![Utc::now().to_rfc3339(), id],
         )?;
         Ok(())
     }

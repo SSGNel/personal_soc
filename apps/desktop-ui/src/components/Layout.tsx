@@ -9,7 +9,6 @@ import {
   Settings,
   PauseCircle,
   PlayCircle,
-  ShieldAlert,
   Activity,
   FishOff,
   Link2Off,

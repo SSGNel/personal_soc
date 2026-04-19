@@ -1,11 +1,13 @@
 mod commands;
 mod state;
 mod tray;
+mod http_backend;
 
 use std::sync::Arc;
 use tauri::Manager;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
+use http_backend::spawn_http_backend;
 
 pub fn run() {
     tracing_subscriber::fmt()
@@ -31,6 +33,8 @@ pub fn run() {
                 .expect("Failed to initialize monitor service");
 
             let monitor = Arc::new(monitor);
+            spawn_http_backend(monitor.clone());
+
             let state = state::AppState::new(monitor.clone());
             app.manage(state);
 
@@ -64,6 +68,11 @@ pub fn run() {
             commands::get_setting,
             commands::save_setting,
             commands::run_cleanup_now,
+            commands::save_credential,
+            commands::list_credentials,
+            commands::get_credentials_for_domain,
+            commands::delete_credential,
+            commands::update_autofill_timestamp,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

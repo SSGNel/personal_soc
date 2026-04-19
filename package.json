@@ -4,8 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --filter desktop-ui dev",
+    "dev:backend": "cargo run --manifest-path apps/tauri-shell/src-tauri/Cargo.toml --bin dev_backend",
+    "dev:all": "node ./scripts/dev-runner.js",
     "build": "pnpm --filter desktop-ui build",
-    "tauri": "pnpm --filter tauri-shell tauri",
+    "tauri": "cd apps/tauri-shell/src-tauri && cargo tauri dev",
+    "tauri:build": "cd apps/tauri-shell/src-tauri && cargo tauri build",
     "lint": "pnpm --filter desktop-ui lint",
     "typecheck": "pnpm --filter desktop-ui typecheck"
   },

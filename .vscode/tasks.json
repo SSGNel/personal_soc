@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Install dependencies",
+      "type": "shell",
+      "command": "pnpm install",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Run desktop UI dev",
+      "type": "shell",
+      "command": "pnpm dev",
+      "problemMatcher": [],
+      "group": "none"
+    },
+    {
+      "label": "Check frontend build",
+      "type": "shell",
+      "command": "pnpm --filter desktop-ui build",
+      "problemMatcher": [],
+      "group": "none"
+    },
+    {
+      "label": "Check Tauri backend",
+      "type": "shell",
+      "command": "cd apps/tauri-shell/src-tauri && cargo check",
+      "problemMatcher": ["$rustc"],
+      "group": "none"
+    },
+    {
+      "label": "Run Tauri dev",
+      "type": "shell",
+      "command": "cd apps/tauri-shell/src-tauri && cargo tauri dev",
+      "problemMatcher": [],
+      "group": "none"
+    }
+  ]
+}

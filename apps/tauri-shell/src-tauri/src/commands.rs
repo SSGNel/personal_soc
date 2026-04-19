@@ -436,3 +436,60 @@ pub async fn resume_monitoring(state: State<'_, AppState>) -> CmdResult<()> {
     state.monitor.resume().await;
     Ok(())
 }
+
+// ---- Password Manager Commands ----
+
+#[tauri::command]
+pub async fn save_credential(
+    state: State<'_, AppState>,
+    site: String,
+    username: String,
+    password_encrypted: String,
+) -> CmdResult<String> {
+    let db = state.monitor.get_db();
+    db.save_credential(&site, &username, &password_encrypted).map_err(to_cmd_err)
+}
+
+#[tauri::command]
+pub async fn list_credentials(state: State<'_, AppState>) -> CmdResult<Value> {
+    let db = state.monitor.get_db();
+    let creds = db.list_credentials().map_err(to_cmd_err)?;
+    let result: Vec<_> = creds.iter().map(|(id, site, username, _password_encrypted)| {
+        serde_json::json!({
+            "id": id,
+            "site": site,
+            "username": username,
+        })
+    }).collect();
+    serde_json::to_value(result).map_err(to_cmd_err)
+}
+
+#[tauri::command]
+pub async fn get_credentials_for_domain(
+    state: State<'_, AppState>,
+    site: String,
+) -> CmdResult<Value> {
+    let db = state.monitor.get_db();
+    let creds = db.get_credentials_for_domain(&site).map_err(to_cmd_err)?;
+    let result: Vec<_> = creds.iter().map(|(id, username, password_encrypted)| {
+        serde_json::json!({
+            "id": id,
+            "username": username,
+            "password_encrypted": password_encrypted,
+        })
+    }).collect();
+    serde_json::to_value(result).map_err(to_cmd_err)
+}
+
+#[tauri::command]
+pub async fn delete_credential(state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    let db = state.monitor.get_db();
+    db.delete_credential(&id).map_err(to_cmd_err)
+}
+
+#[tauri::command]
+pub async fn update_autofill_timestamp(state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    let db = state.monitor.get_db();
+    db.update_autofill_timestamp(&id).map_err(to_cmd_err)
+}
+

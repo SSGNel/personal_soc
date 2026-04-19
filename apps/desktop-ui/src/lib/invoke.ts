@@ -1,6 +1,42 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { ProcessRecord, ProcessMetric, Alert, StartupEntry, SystemOverview, ActivityEvent } from '@/types';
 
+const HTTP_BACKEND_URL = 'http://127.0.0.1:3420/api';
+const isTauriAvailable = typeof window !== 'undefined' && (window as any).__TAURI__ !== undefined;
+
+async function fetchBackend<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const init: RequestInit = {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string> | undefined),
+    },
+  };
+
+  const response = await fetch(`${HTTP_BACKEND_URL}${path}`, init);
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`HTTP backend error ${response.status}: ${body}`);
+  }
+  return response.json();
+}
+
+async function invokeOrFetch<T>(
+  cmd: string,
+  args: Record<string, unknown> | undefined,
+  path: string,
+  options?: RequestInit,
+): Promise<T> {
+  if (isTauriAvailable) {
+    try {
+      return await invoke<T>(cmd, args);
+    } catch (error) {
+      console.warn('Tauri invoke failed, falling back to HTTP backend', error);
+    }
+  }
+  return fetchBackend<T>(path, options);
+}
+
 export async function getSystemOverview(): Promise<SystemOverview> {
   return invoke('get_system_overview');
 }
@@ -93,3 +129,46 @@ export async function listActivityEventsPaged(
 export async function askAi(question: string): Promise<string> {
   return invoke('ask_ai', { question });
 }
+
+// Password Manager commands
+export async function saveCredential(
+  site: string,
+  username: string,
+  passwordEncrypted: string,
+): Promise<string> {
+  return invokeOrFetch<string>(
+    'save_credential',
+    { site, username, passwordEncrypted },
+    '/credentials',
+    {
+      method: 'POST',
+      body: JSON.stringify({ site, username, password: passwordEncrypted }),
+    },
+  );
+}
+
+export async function listCredentials(): Promise<
+  Array<{ id: string; site: string; username: string }>
+> {
+  return invokeOrFetch('list_credentials', undefined, '/credentials', { method: 'GET' });
+}
+
+export async function getCredentialsForDomain(
+  site: string,
+): Promise<Array<{ id: string; username: string; passwordEncrypted: string }>> {
+  return invokeOrFetch(
+    'get_credentials_for_domain',
+    { site },
+    `/credentials?site=${encodeURIComponent(site)}`,
+    { method: 'GET' },
+  );
+}
+
+export async function deleteCredential(id: string): Promise<void> {
+  await invokeOrFetch('delete_credential', { id }, `/credentials/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export async function updateAutofillTimestamp(id: string): Promise<void> {
+  await invokeOrFetch('update_autofill_timestamp', { id }, `/credentials/${encodeURIComponent(id)}/autofill`, { method: 'POST' });
+}
+

@@ -1,8 +1,13 @@
 import { useState, useEffect } from "react";
-import { Shield, Key, Plus, Eye, EyeOff, Copy } from "lucide-react";
+import { Key, Eye, EyeOff, Copy, AlertCircle } from "lucide-react";
+import {
+  saveCredential,
+  listCredentials,
+  deleteCredential as deleteCredentialBackend,
+} from "@/lib/invoke";
 
 type Credential = {
-  id: number;
+  id: string;
   site: string;
   username: string;
   password: string;
@@ -13,46 +18,85 @@ export default function PasswordManagerPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [vault, setVault] = useState<Credential[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [checkPassword, setCheckPassword] = useState("");
   const [analysis, setAnalysis] = useState<any>(null);
 
-  const [visiblePasswords, setVisiblePasswords] = useState<number[]>([]);
+  const [visiblePasswords, setVisiblePasswords] = useState<string[]>([]);
 
+  // Load credentials from backend on mount
   useEffect(() => {
-    const saved = localStorage.getItem("vault");
-    if (saved) setVault(JSON.parse(saved));
-    setLoaded(true);
+    loadCredentials();
   }, []);
 
-  useEffect(() => {
-    if (!loaded) return;
-    localStorage.setItem("vault", JSON.stringify(vault));
-  }, [vault, loaded]);
+  const loadCredentials = async () => {
+    setLoading(true);
+    setError(null);
 
-  const addCredential = () => {
-    if (!site || !username || !password) return;
-
-    setVault((prev) => [
-      { id: Date.now(), site, username, password },
-      ...prev,
-    ]);
-
-    setSite("");
-    setUsername("");
-    setPassword("");
+    try {
+      const creds = await listCredentials();
+      // Convert API response to Credential format
+      const formattedCreds: Credential[] = creds.map((c: any) => ({
+        id: c.id,
+        site: c.site,
+        username: c.username,
+        password: "", // Password is not loaded on list
+      }));
+      setVault(formattedCreds);
+    } catch (err) {
+      setError(
+        "Failed to load credentials from backend. Ensure the desktop backend is running or start the local HTTP backend."
+      );
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteCredential = (id: number) => {
-    setVault((prev) => prev.filter((c) => c.id !== id));
+  const addCredential = async () => {
+    if (!site || !username || !password) {
+      setError("All fields are required");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      // For now, store password as plain text. Consider implementing encryption.
+      await saveCredential(site, username, password);
+      // Reload credentials from backend
+      await loadCredentials();
+      setSite("");
+      setUsername("");
+      setPassword("");
+    } catch (err) {
+      setError("Failed to save credential. Ensure the backend is running.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const togglePassword = (id: number) => {
+  const deleteCredentialFromVault = async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await deleteCredentialBackend(id);
+      // Reload credentials from backend
+      await loadCredentials();
+    } catch (err) {
+      setError("Failed to delete credential");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const togglePassword = (id: string) => {
     setVisiblePasswords((prev) =>
-      prev.includes(id)
-        ? prev.filter((v) => v !== id)
-        : [...prev, id]
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
     );
   };
 
@@ -103,13 +147,23 @@ export default function PasswordManagerPage() {
       <h1 style={s.title}>
         <Key size={20} /> Password Manager
       </h1>
-      <p style={s.subtitle}>Securely store and analyze credentials</p>
+      <p style={s.subtitle}>Securely manage & autofill credentials</p>
+
+      {error && (
+        <div style={s.errorBanner}>
+          <AlertCircle size={16} />
+          {error}
+          <button style={s.retryBtn} onClick={loadCredentials}>
+            Retry connection
+          </button>
+        </div>
+      )}
 
       <div style={s.cardFull}>
         <div style={s.statusRow}>
           <div>
             <p style={s.muted}>Vault Status</p>
-            <h2 style={s.secure}>Secure</h2>
+            <h2 style={s.secure}>Backend Secured</h2>
           </div>
           <div>
             <p style={s.muted}>Stored Credentials</p>
@@ -168,19 +222,46 @@ export default function PasswordManagerPage() {
 
           <div style={s.card}>
             <h3>Add Credential</h3>
-            <p style={s.muted}>Store login details securely</p>
+            <p style={s.muted}>Store login details securely in backend</p>
 
             <div style={s.form}>
-              <input value={site} onChange={(e) => setSite(e.target.value)} placeholder="Website" className="input"/>
-              <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className="input"/>
-              <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" className="input"/>
-              <button className="btn" onClick={addCredential}>Add Credential</button>
+              <input
+                value={site}
+                onChange={(e) => setSite(e.target.value)}
+                placeholder="Website (e.g., github.com)"
+                className="input"
+              />
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Username"
+                className="input"
+              />
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                type="password"
+                className="input"
+              />
+              <button
+                className="btn"
+                onClick={addCredential}
+                disabled={loading}
+              >
+                {loading ? "Saving..." : "Add Credential"}
+              </button>
+              <p style={s.backendNote}>
+                If the backend is not available, please run the desktop app or start the local HTTP backend.
+              </p>
             </div>
           </div>
         </div>
 
         <div style={s.vaultPanel}>
           <h3>Saved Credentials</h3>
+
+          {loading && <p style={s.muted}>Loading credentials...</p>}
 
           {vault.map((item) => {
             const visible = visiblePasswords.includes(item.id);
@@ -190,26 +271,38 @@ export default function PasswordManagerPage() {
                 <div>
                   <p style={{ fontWeight: 600 }}>{item.site}</p>
                   <p style={s.muted}>{item.username}</p>
-                  <p>{visible ? item.password : "••••••••"}</p>
+                  <p>{visible ? item.password || "••••••••" : "••••••••"}</p>
                 </div>
 
                 <div style={s.actions}>
-                  {/* ✅ FIXED BUTTONS */}
-                  <button style={s.iconBtn} onClick={() => togglePassword(item.id)}>
-                    {visible ? <EyeOff size={16}/> : <Eye size={16}/>}
+                  <button
+                    style={s.iconBtn}
+                    onClick={() => togglePassword(item.id)}
+                  >
+                    {visible ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
 
-                  <button style={s.iconBtn} onClick={() => copyPassword(item.password)}>
-                    <Copy size={16}/>
+                  <button
+                    style={s.iconBtn}
+                    onClick={() => copyPassword(item.password || "")}
+                  >
+                    <Copy size={16} />
                   </button>
 
-                  <button className="btn btn-danger" onClick={() => deleteCredential(item.id)}>
+                  <button
+                    className="btn btn-danger"
+                    onClick={() => deleteCredentialFromVault(item.id)}
+                  >
                     Delete
                   </button>
                 </div>
               </div>
             );
           })}
+
+          {vault.length === 0 && !loading && (
+            <p style={s.muted}>No credentials saved yet.</p>
+          )}
         </div>
       </div>
     </div>
@@ -221,24 +314,37 @@ const s: Record<string, React.CSSProperties> = {
     height: "100%",
     display: "flex",
     flexDirection: "column",
-    background: "radial-gradient(circle at top, rgba(255,140,0,0.05), transparent 60%)"
+    background: "radial-gradient(circle at top, rgba(255,140,0,0.05), transparent 60%)",
   },
 
   title: { fontSize: 22, fontWeight: 700 },
   subtitle: { color: "var(--text-muted)", fontSize: 12, marginBottom: 16 },
 
+  errorBanner: {
+    padding: 12,
+    borderRadius: 8,
+    background: "rgba(248, 113, 113, 0.1)",
+    border: "1px solid #F87171",
+    color: "#F87171",
+    marginBottom: 12,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 12,
+  },
+
   grid: {
     display: "grid",
     gridTemplateColumns: "1.2fr 1.8fr",
     gap: 20,
-    flex: 1
+    flex: 1,
   },
 
   leftCol: {
     display: "flex",
     flexDirection: "column",
     gap: 20,
-    height: "100%"
+    height: "100%",
   },
 
   cardFull: {
@@ -246,14 +352,14 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: 12,
     border: "1px solid #48423B",
     background: "linear-gradient(145deg, #2A2520, #1F1B18)",
-    marginBottom: 16
+    marginBottom: 16,
   },
 
   card: {
     padding: 18,
     borderRadius: 12,
     border: "1px solid #48423B",
-    background: "linear-gradient(145deg, #2A2520, #1F1B18)"
+    background: "linear-gradient(145deg, #2A2520, #1F1B18)",
   },
 
   cardBig: {
@@ -261,7 +367,7 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: 12,
     border: "1px solid #48423B",
     background: "linear-gradient(145deg, #2A2520, #1F1B18)",
-    flex: 1
+    flex: 1,
   },
 
   vaultPanel: {
@@ -271,7 +377,7 @@ const s: Record<string, React.CSSProperties> = {
     background: "linear-gradient(145deg, #2A2520, #1F1B18)",
     display: "flex",
     flexDirection: "column",
-    gap: 12
+    gap: 12,
   },
 
   vaultItem: {
@@ -281,7 +387,7 @@ const s: Record<string, React.CSSProperties> = {
     background: "linear-gradient(145deg, #25201C, #1A1714)",
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center"
+    alignItems: "center",
   },
 
   actions: { display: "flex", gap: 10 },
@@ -311,9 +417,24 @@ const s: Record<string, React.CSSProperties> = {
     marginTop: 6,
     paddingLeft: 18,
   },
+  retryBtn: {
+    marginLeft: 12,
+    background: "#2563EB",
+    color: "white",
+    border: "none",
+    borderRadius: 8,
+    padding: "6px 10px",
+    cursor: "pointer",
+    fontSize: 12,
+  },
 
+  backendNote: {
+    marginTop: 8,
+    color: "#FBBF24",
+    fontSize: 12,
+  },
   secure: {
     color: "#4ADE80",
-    textShadow: "0 0 10px rgba(74,222,128,0.6)"
-  }
+    textShadow: "0 0 10px rgba(74,222,128,0.6)",
+  },
 };

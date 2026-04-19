@@ -23,6 +23,7 @@ tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 dirs = "5"
+warp = "0.3"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

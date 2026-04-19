@@ -25,5 +25,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         conn.execute("INSERT INTO schema_migrations (version) VALUES (?1)", [1])?;
     }
 
+    if version < 2 {
+        conn.execute_batch(include_str!("../../../../database/migrations/002_password_manager.sql"))?;
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (?1)", [2])?;
+    }
+
     Ok(())
 }
