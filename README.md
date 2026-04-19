@@ -1,4 +1,4 @@
-# ThreatGuard — Personal Security Assistant
+sa# ThreatGuard — Personal Security Assistant
 
 A Windows desktop security monitor that tracks running processes, startup persistence, and suspicious behaviour in real time, then explains findings through an AI-powered chat interface.
 
@@ -11,7 +11,7 @@ personal-soc/
 ├── apps/
 │   ├── desktop-ui/                  # React + TypeScript frontend (Vite)
 │   └── tauri-shell/                 # Tauri 2 desktop shell + Rust commands
-│       └── src-tauri/
+ve │       └── src-tauri/
 │           ├── .env.example         # Copy to .env and add your key
 │           └── build.rs             # Bakes GROQ_API_KEY into binary at compile time
 ├── crates/
